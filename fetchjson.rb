@@ -12,9 +12,9 @@ require 'uri'
 require 'open-uri'
 require 'json'
 
-require 'coloredlogger'
+require 'tty-logger'
 
-$LOG = ColoredLogger.new(STDOUT)
+$LOG = TTY::Logger.new
 
 BOOK_API_FIELDS = %w[
   aich
@@ -133,10 +133,8 @@ def getBookList
 end
 
 list = getBookList
-_i = 0
 
-list.each do |book|
-  _i += 1
+list.each_with_index do |book, index|
   md5 = book['md5']
 
   libgen = book_json_get(md5)
@@ -163,6 +161,6 @@ list.each do |book|
   end
 
   saveJSON(book['_id'], data)
-  $LOG.info "progress #{_i}/#{list.length}"
+  $LOG.info "progress #{index}/#{list.length}"
   sleep 2
 end

@@ -23,11 +23,11 @@ $LOG = TTY::Logger.new
 $book_list = []
 
 $BOOK_DIR = [
-  '/media/drive/e/Documents',
-  '/media/drive/z/Books'
+  'z:/Books'
 ]
 
 $SKIPFILES = ['.', '..']
+$EXCLUDE_REGEXP = /Manga..*Manga.*|MBSc|SanDisc|Light Novel \- WEB/
 
 $CAPTUREFILE = [
   '.azw',
@@ -40,6 +40,22 @@ $CAPTUREFILE = [
 ]
 
 $REGEXP = /_\[?(?<isbn>[0-9 \-]{10,})\]?\.\w+$/
+$print_last_length = 0
+
+def single_line_print(line, index = 0, length = 0)
+  str = ''
+  if index.positive? && length.positive?
+    str = "#{(index * 100.0 / length).round(2)}%, "
+  end
+  str += line
+
+  if str.length > $print_last_length
+    $print_last_length = str.length
+  else
+    str = str.ljust($print_last_length)
+  end
+  print str + "\r"
+end
 
 def saveJSON(data)
   data_json = data.to_json
@@ -86,13 +102,14 @@ def path_truncate(path)
 end
 
 def generate_list(path)
+  single_line_print(path)
   $LOG.debug "scanning => #{path_truncate(path)}" if $DEBUG
   Dir.entries(path, encoding: 'UTF-8').each do |file|
     next if $SKIPFILES.include? file
 
     filepath = File.join(path, file)
     if File.directory?(filepath)
-      generate_list(filepath)
+      generate_list(filepath) unless $EXCLUDE_REGEXP.match(filepath)
     else
       if $CAPTUREFILE.include? File.extname(filepath).downcase
         $book_list << filepath if capture_fn(filepath)
@@ -113,11 +130,14 @@ $book_list.map! do |filepath|
   }
 end.select! do |e|
   e[:isbn][:is_valid]
-end.map! do |book|
+end
+
+$book_list.map! do |book|
   filepath = book[:filepath]
   data = {
     id: book[:isbn][:isbn13].to_i,
-    filepath: book[:filepath].encode!(Encoding::UTF_8)
+    filepath: book[:filepath].encode!(Encoding::UTF_8),
+    created_at: 1000 * File.mtime(book[:filepath]).to_i
   }
   data
 end
